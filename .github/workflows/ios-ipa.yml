@@ -1,0 +1,73 @@
+name: ios-ipa
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: apps/mobile
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          pod --version
+          node --version
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: Generate iOS project
+        run: pnpm exec expo prebuild -p ios --no-install
+
+      - name: CocoaPods install
+        run: pod install --project-directory=ios
+
+      - name: Archive (unsigned device build)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace ios/OpenMuse.xcworkspace \
+            -scheme OpenMuse \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$GITHUB_WORKSPACE/build/OpenMuse.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | xcbeautify --renderer github
+
+      - name: Package .ipa
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/build/Payload"
+          cp -R "$GITHUB_WORKSPACE/build/OpenMuse.xcarchive/Products/Applications/OpenMuse.app" "$GITHUB_WORKSPACE/build/Payload/"
+          cd "$GITHUB_WORKSPACE/build"
+          zip -qry OpenMuse-unsigned.ipa Payload
+          ls -la OpenMuse-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenMuse-unsigned-ipa
+          path: build/OpenMuse-unsigned.ipa
+          if-no-files-found: error
