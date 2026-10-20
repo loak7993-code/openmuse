@@ -9,6 +9,8 @@ jobs:
   build-ipa:
     runs-on: macos-15
     timeout-minutes: 90
+    env:
+      EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
     defaults:
       run:
         working-directory: apps/mobile

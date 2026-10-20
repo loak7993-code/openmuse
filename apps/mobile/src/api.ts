@@ -1,6 +1,8 @@
 import { Platform } from "react-native";
 import { readApiPayload } from "./api-response";
 
+// EXPO_PUBLIC_API_URL is baked at bundle time; set it when building for a device.
+
 export const API_URL = (
   process.env.EXPO_PUBLIC_API_URL ||
   (Platform.OS === "android" ? "http://10.0.2.2:8787" : "http://localhost:8787")
